@@ -32,71 +32,71 @@ class RedisListener:
         logging.info(f"Restarting due to: {reason}")
 
     def listen_to_redis(self, redis_host, redis_port):
-        connected_once = False  # Track if we ever successfully connected
+        connected_once = False
+        last_ids = {stream: '0' for stream in self.REDIS_CHANNELS}  # Start from beginning or '$' for only new
 
         while True:
             try:
                 print(f"Connecting to Redis at {redis_host}:{redis_port}...")
                 r = redis.Redis(
                     host=redis_host,
-                    port=redis_port,
+                    port=int(redis_port),
                     db=0,
                     socket_keepalive=True,
-                    socket_timeout=5,  
-                    retry_on_timeout=True, 
+                    socket_timeout=5,
+                    retry_on_timeout=True,
                 )
-             
                 r.ping()
                 print(f"✅ Successfully connected to Redis at {redis_host}:{redis_port}")
                 logging.info(f"Connected to Redis at {redis_host}:{redis_port}")
-                connected_once = True  
-                
-                pubsub = r.pubsub()
-                pubsub.subscribe(*self.REDIS_CHANNELS)
-                print(f"Listening for messages on {redis_host}:{redis_port}...")
+                connected_once = True
 
-                while True: 
-                    message = pubsub.get_message(timeout=1)  
-                    if message:
-                        if message["type"] != "message":
-                            continue
-                        try:
-                            channel = message["channel"].decode("utf-8") if isinstance(message["channel"], bytes) else message["channel"]
-                            raw_data = message["data"]
-                            print(f"📩 Message received on channel: {channel}")
-
-                            if channel == "channel1":
-                                self.handle_channel1(raw_data)
-                            elif channel == "mdd/image":  
-                                self.handle_mdd(raw_data, redis_host)
-                            elif channel == "mdd/json":
-                                self.handle_mdd_json(raw_data)
-                            elif channel=="add/image":
-                                self.handle_add_image(raw_data,redis_host)
-                            elif channel == "add/json":
-                                self.handle_add_json(raw_data)
-                        except Exception as e:
-                            logging.error(f"⚠️ Error processing message: {e}")
-                            print(f"⚠️ Error processing message: {e}")
-                    
+                while True:
                     try:
-                        r.ping()
+                        streams = {stream: last_ids[stream] for stream in self.REDIS_CHANNELS}
+                        response = r.xread(streams=streams, block=1000, count=10)
+
+                        for stream, messages in response:
+                            stream = stream.decode("utf-8") if isinstance(stream, bytes) else stream
+                            for message_id, data in messages:
+                                last_ids[stream] = message_id  # update last ID read
+                                raw_data = data.get(b'data') or data.get('data')  # support bytes or str keys
+
+                                if not raw_data:
+                                    continue
+
+                                print(f"📩 Stream message received from {stream}, ID: {message_id}")
+
+                                if stream == "channel1":
+                                    self.handle_channel1(raw_data)
+                                elif stream == "mdd/image":
+                                    self.handle_mdd(raw_data, redis_host)
+                                elif stream == "mdd/json":
+                                    self.handle_mdd_json(raw_data)
+                                elif stream == "add/image":
+                                    self.handle_add_image(raw_data, redis_host)
+                                elif stream == "add/json":
+                                    self.handle_add_json(raw_data)
                     except redis.ConnectionError:
                         raise redis.ConnectionError("Lost connection")
+                    except Exception as e:
+                        print(f"⚠️ Error reading from stream: {e}")
+                        logging.error(f"⚠️ Error reading from stream: {e}")
 
             except redis.ConnectionError as e:
-                if not connected_once:
-                    issue = f"❌ Failed to connect to Redis at {redis_host}:{redis_port} - {e}"
-                else:
-                    issue = f"🚨 Redis connection lost during runtime at {redis_host}:{redis_port} - {e}"
-
+                issue = (
+                    f"❌ Failed to connect to Redis at {redis_host}:{redis_port} - {e}"
+                    if not connected_once else
+                    f"🚨 Redis connection lost during runtime at {redis_host}:{redis_port} - {e}"
+                )
                 print(issue)
                 logging.error(issue)
-                time.sleep(1)  # Wait before retrying
+                time.sleep(1)
             except Exception as e:
                 issue = f"Unexpected error at {redis_host}:{redis_port} - {e}"
                 print(issue)
                 logging.error(issue)
+
 
 
     def handle_channel1(self, raw_data):
