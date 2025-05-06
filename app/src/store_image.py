@@ -23,6 +23,7 @@ class StoreImage:
                                 cb[0](cb[1])
                         
                         else:
+                            print(self.imageQueue.qsize())
                             cv2.imwrite(location,image)
 
                     else:
@@ -62,7 +63,7 @@ class StoreImage:
             cb.append([self.shape.add_label,result])
             # x1,y1,x2,y2 = coordinates
             # x1,y1,x2,y2 = int(x1),int(y1),int(x2),int(y2)
-            cb.append([self.shape.add_points,coordinates])
+            cb.append([self.shape.add_points, [coordinates[:2], coordinates[2:]]])
             cb.append([self.shape.add_shape_type,'rectangle'])
             cb.append([self.shape.add_score, float(score)])  # Convert numpy.float32
             cb.append([self.label.add_shapes,self.shape])

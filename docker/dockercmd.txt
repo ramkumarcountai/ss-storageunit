@@ -1,4 +1,4 @@
-sudo docker build --platform linux/arm64 -t countaiadmin/storageunit:1.0.0 .
+sudo docker build --platform linux/arm64 -t countaiadmin/storageunit:1.2.0 .
 
 sudo docker push countaiadmin/countaiadmin/storageunit:1.0.0
 sudo docker pull countaiadmin/countaiadmin/storageunit:1.0.0
@@ -6,4 +6,11 @@ sudo docker pull countaiadmin/countaiadmin/storageunit:1.0.0
 sudo docker run -it --name storageunit --restart=always --privileged \
   -v /home:/home \
   -v /home/kniti/projects/knit-i/saveimage.log:/app/saveimage.log \
-  --network=host countaiadmin/storageunit:1.0.0
+  --network=host countaiadmin/storageunit:1.2.0
+
+sudo docker run -d --name storageunit --restart=always --privileged \
+  -v /home:/home \
+  -v /home/kniti/projects/knit-i/saveimage.log:/app/saveimage.log \
+  -v /home/kniti/projects/knit-i/config/saveimage_config.ini:/app/saveimage_config.ini \
+  --network=host \
+  countaiadmin/storageunit:1.2.0
