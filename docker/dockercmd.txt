@@ -12,5 +12,7 @@ sudo docker run -d --name storageunit --restart=always --privileged \
   -v /home:/home \
   -v /home/kniti/projects/knit-i/saveimage.log:/app/saveimage.log \
   -v /home/kniti/projects/knit-i/config/saveimage_config.ini:/app/saveimage_config.ini \
+  -v /etc/localtime:/etc/localtime:ro \
+  -e TZ=Asia/Kolkata \
   --network=host \
   countaiadmin/storageunit:1.2.0
